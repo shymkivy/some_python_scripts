@@ -65,19 +65,20 @@ def main():
     
     #f_dir = 'E:\data\V1\proc_data\\'
     #f_dir = 'E:\\data\\Auditory\\caiman_out_multiplane\\'
-    f_dir = 'F:\\data\\Auditory\\caiman_out\\movies\\'
+    #f_dir = 'F:\\data\\Auditory\\caiman_out\\movies\\'
+    f_dir = 'C:\\Users\\ys2605\\Desktop\\stuff\\AC_data\\caiman_data\\movies\\'
     #f_name = 'A2_freq_grating1_10_2_18_OA_cut'
     #f_dir = 'C:\\Users\\rylab_dataPC\\Desktop\\Yuriy\\DD_data\\proc_data\\'
     #f_name = 'vmmn2_9_16_19a_OA_cut'
     #f_name = 'ammn_2_dplanes2_10_14_19_OA_mpl1_cut';
-    f_name = 'A2_freq_grating3_5_15_20_OA_cut';
+    f_name = 'A1_ammn_3plt_2plm2_12_27_20_mpl3_cut';
     f_ext = 'hdf5'
     fnames = [f_dir + f_name + '.' + f_ext]
     
     # %%   Set up some parameters
     
-    fr = 30  # frame rate (Hz)
-    decay_time = 2 # 2 for s 0.5 for f # approximate length of transient event in seconds
+    fr = 15.5455  # frame rate (Hz) 3pl + 4ms = 15.5455
+    decay_time = 0.5 # 2 for s 0.5 for f # approximate length of transient event in seconds
     gSig = (5,5)  # expected half size of neurons
     p = 2  # order of AR indicator dynamics
     min_SNR = 1   # minimum SNR for accepting new components
@@ -85,7 +86,7 @@ def main():
     gnb = 2  # number of background components
     gSig = tuple(np.ceil(np.array(gSig) / ds_factor).astype('int')) # recompute gSig if downsampling is involved
     mot_corr = True  # flag for online motion correction
-    pw_rigid = True  # flag for pw-rigid motion correction (slower but potentially more accurate)
+    pw_rigid = False  # flag for pw-rigid motion correction (slower but potentially more accurate)
     max_shifts_online = 6  # maximum allowed shift during motion correction
     sniper_mode = True  # use a CNN to detect new neurons (o/w space correlation)
     rval_thr = 0.9  # soace correlation threshold for candidate components
