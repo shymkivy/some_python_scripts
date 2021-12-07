@@ -25,7 +25,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import os
 import h5py
-import deepdish
+#import deepdish
 
 try:
     cv2.setNumThreads(0)
@@ -43,9 +43,11 @@ except:
 
 
 import caiman as cm
+from caiman.source_extraction import cnmf as cnmf
 from caiman.motion_correction import MotionCorrect
-from caiman.source_extraction.cnmf import cnmf as cnmf
-from caiman.source_extraction.cnmf import params as params
+
+#from caiman.source_extraction.cnmf import cnmf as cnmf
+#from caiman.source_extraction.cnmf import params as params
 
 
 #from caiman.utils.utils import download_demo
@@ -59,7 +61,7 @@ from caiman.source_extraction.cnmf import params as params
 logging.basicConfig(format=
                     "%(relativeCreated)12d [%(filename)s:%(funcName)20s():%(lineno)s]"\
                     "[%(process)d] %(message)s",
-                    level=logging.WARNING)
+                    level=logging.INFO)
 
 
 # %%
@@ -70,10 +72,10 @@ def main():
     """
     General parameters
     """
-    play_movie = 1;
-    plot_extras = 1;
-    plot_extras_cell = 1;
-    compute_mc_metrics = 1;
+    play_movie = 0;
+    plot_extras = 0;
+    plot_extras_cell = 0;
+    compute_mc_metrics = 0;
     
     #%% Select file(s) to be processed (download if not present)
     """
@@ -88,9 +90,11 @@ def main():
     
     
     #f_dir = 'C:\\Users\\rylab_dataPC\\Desktop\\Yuriy\\caiman_data\\short\\'
-    f_dir = 'G:\\analysis\\190828-calcium_voltage\\soma_dendrites\\pCAG_jREGECO1a_ASAP3_anesth_001\\'
-    f_name = 'Ch1'
-    f_ext = 'tif'
+    #f_dir = 'G:\\data\\Auditory\\caiman_out\\movies\\'
+    f_dir = 'C:\\Users\\ys2605\\Desktop\\stuff\\AC_data\\cmnf_data\\'
+    #f_dir = 'G:\\analysis\\190828-calcium_voltage\\soma_dendrites\\pCAG_jREGECO1a_ASAP3_anesth_001\\'
+    f_name = 'A2_ammn1_5_21_20_OA_cut_5000';
+    f_ext = 'hdf5'
     fnames = [f_dir + f_name + '.' + f_ext]
     
     
@@ -103,40 +107,42 @@ def main():
     
     # dataset dependent parameters
     fr = 30             # imaging rate in frames per second
-    decay_time = 1;#0.4    # length of a typical transient in seconds
-    dxy = (2., 2.)      # spatial resolution in x and y in (um per pixel)
+    decay_time = .5; # 1;#0.4    # length of a typical transient in seconds
+    #dxy = (2., 2.)      # spatial resolution in x and y in (um per pixel)
     # note the lower than usual spatial resolution here
-    max_shift_um = (12., 12.)       # maximum shift in um
-    patch_motion_um = (100., 100.)  # patch size for non-rigid correction in um
+    #max_shift_um = (12., 12.)       # maximum shift in um
+    #patch_motion_um = (100., 100.)  # patch size for non-rigid correction in um
     
     # motion correction parameters
+    mot_corr = True  # flag for online motion correction
     pw_rigid = True       # flag to select rigid vs pw_rigid motion correction
     # maximum allowed rigid shift in pixels
     #max_shifts = [int(a/b) for a, b in zip(max_shift_um, dxy)]
-    max_shifts = [6, 6]
+    #max_shifts = [6, 6]
     # start a new patch for pw-rigid motion correction every x pixels
     #strides = tuple([int(a/b) for a, b in zip(patch_motion_um, dxy)])
-    strides = [48, 48]
+    strides = (96,96); #[48, 48]
     # overlap between pathes (size of patch in pixels: strides+overlaps)
-    overlaps = (24, 24)
+    overlaps = (32,32); #(24, 24)
     # maximum deviation allowed for patch with respect to rigid shifts
-    max_deviation_rigid = 3
+    #max_deviation_rigid = 3
     
     
     mc_dict = {
         'fnames': fnames,
         'fr': fr,
         'decay_time': decay_time,
-        'dxy': dxy,
+        #'dxy': dxy,
+        'motion_correct': mot_corr,
         'pw_rigid': pw_rigid,
-        'max_shifts': max_shifts,
+        #'max_shifts': max_shifts,
         'strides': strides,
         'overlaps': overlaps,
-        'max_deviation_rigid': max_deviation_rigid,
+        #'max_deviation_rigid': max_deviation_rigid,
         'border_nan': 'copy'
     }
     
-    opts = params.CNMFParams(params_dict=mc_dict)
+    opts = cnmf.params.CNMFParams(params_dict=mc_dict)
     
     # %% play the movie (optional)
     # playing the movie using opencv. It requires loading the movie in memory.
@@ -144,12 +150,15 @@ def main():
     
     
     if play_movie:
-        m_orig = cm.load_movie_chain(fnames)
+        m_orig = cm.load(fnames) # load_movie_chain
         ds_ratio = 0.2
         moviehandle = m_orig.resize(1, 1, ds_ratio)
         moviehandle.play(q_max=99.5, fr=60, magnification=2)
+        del m_orig
     
     # %% start a cluster for parallel processing
+    if 'dview' in locals():
+        cm.stop_server(dview=dview)
     c, dview, n_processes = cm.cluster.setup_cluster(
         backend='local', n_processes=None, single_thread=False)
     
@@ -174,10 +183,14 @@ def main():
     
     #%% # compute metrics for the results (TAKES TIME!!)
     if compute_mc_metrics:
-        # not finished
-        bord_px_els = np.ceil(np.maximum(np.max(np.abs(mc.x_shifts_els)), np.max(np.abs(mc.y_shifts_els)))).astype(np.int)
-        
-        final_size = np.subtract(mc.total_template_els.shape, 2 * bord_px_els) # remove pixels in the boundaries
+        if opts.motion['pw_rigid']:
+            # not finished
+            bord_px = np.ceil(np.maximum(np.max(np.abs(mc.x_shifts_els)), np.max(np.abs(mc.y_shifts_els)))).astype(np.int)
+            final_size = np.subtract(mc.total_template_els.shape, 2 * bord_px) # remove pixels in the boundaries
+        else:
+            bord_px = np.ceil(np.max(mc.shifts_rig)).astype(np.int)
+            final_size = np.subtract(mc.total_template_rig.shape, 2 * bord_px) # remove pixels in the boundaries
+            
         winsize = 100
         swap_dim = False
         resize_fact_flow = .2    # downsample for computing ROF
@@ -187,11 +200,11 @@ def main():
         
         plt.figure();
         plt.plot(correlations_orig);
-    
+
     
     # %% compare with original movie
     if play_movie:
-        m_orig = cm.load_movie_chain(fnames)
+        m_orig = cm.load(fnames)
         m_els = cm.load(mc.mmap_file)
         ds_ratio = 0.2
         moviehandle = cm.concatenate([m_orig.resize(1, 1, ds_ratio) - mc.min_mov*mc.nonneg_movie,
@@ -199,19 +212,24 @@ def main():
         moviehandle.play(fr=60, q_max=99.5, magnification=2)  # press q to exit
         del m_orig;
         del m_els;
+        del moviehandle;
         
         
     if plot_extras:
         # plot total template
         plt.figure();
-        plt.imshow(mc.total_template_els);
+        if opts.motion['pw_rigid']:
+            plt.imshow(mc.total_template_els);
+        else:
+            plt.imshow(mc.total_template_rig);
         plt.title('Template after iteration');
         # plot x and y corrections
         plt.figure();
         plt.plot(mc.shifts_rig);
-        plt.title('Rigid motion correction xy movement');
+        plt.title('Motion correction xy movement');
         plt.legend(['x shift','y shift']);
         plt.xlabel('frames');
+
     
     # %% MEMORY MAPPING
     border_to_0 = 0 if mc.border_nan is 'copy' else mc.border_to_0
@@ -221,13 +239,16 @@ def main():
     
     # memory map the file in order 'C'
     fname_new = cm.save_memmap(mc.mmap_file, base_name='memmap_', order='C',
-                               border_to_0=border_to_0)  # exclude borders
+                                border_to_0=border_to_0)  # exclude borders
     
     # now load the file
-    Yr, dims, T = cm.load_memmap(fname_new)
+    Yr, dims, T = cm.load_memmap(fname_new)   # mc.mmap_file[0]
     images = np.reshape(Yr.T, [T] + list(dims), order='F')
+    del Yr
     # load frames in python format (T x X x Y)
-    
+
+    #plt.figure();
+    #plt.imshow(np.mean(images, axis=0))
     # %% restart cluster to clean up memory
     cm.stop_server(dview=dview)
     c, dview, n_processes = cm.cluster.setup_cluster(
@@ -239,10 +260,10 @@ def main():
     p = 2                    # order of the autoregressive system
     gnb = 2                  # number of global background components
     merge_thr = 0.85         # merging threshold, max correlation allowed
-    rf = 15                  # half-size of the patches in pixels. e.g., if rf=25, patches are 50x50
-    stride_cnmf = 6          # amount of overlap between the patches in pixels
-    K = 2                    # number of components per patch
-    gSig = [15, 15]            # expected half size of neurons in pixels
+    rf = 50                  # half-size of the patches in pixels. e.g., if rf=25, patches are 50x50
+    stride_cnmf = 12          # amount of overlap between the patches in pixels
+    K = 20                    # number of components per patch
+    gSig = [3, 3]            # expected half size of neurons in pixels
     # initialization method (if analyzing dendritic data using 'sparse_nmf')
     method_init = 'greedy_roi'
     ssub = 1                     # spatial subsampling during initialization
@@ -272,10 +293,11 @@ def main():
     opts.change_params({'p': 0})
     cnm = cnmf.CNMF(n_processes, params=opts, dview=dview)
     cnm = cnm.fit(images)
+   
     
-    
+#%%    
     if plot_extras_cell:
-        num_cell_plot = 51;
+        num_cell_plot = 5;
         plt.figure();
         plt.plot(cnm.estimates.C[num_cell_plot,:]);
         plt.title('Temporal component');
@@ -405,7 +427,7 @@ def main():
     
     save_results = True
     if save_results:
-        cnm2.save(fnames[0][:-4] + '_results.hdf5')
+        cnm2.save(fnames[0][:-4] + '_results_cnmf.hdf5')
     
 
 #%%

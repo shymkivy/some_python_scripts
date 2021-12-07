@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python -W ignore::DeprecationWarning
 # -*- coding: utf-8 -*-
 
 """
@@ -41,7 +41,7 @@ import time
 def main():
     pass # For compatibility between running under Spyder and the CLI
 
-    # %%  download and list all files to be processed
+# %%  download and list all files to be processed
     #
     ## folder inside ./example_movies where files will be saved
     #fld_name = 'Mesoscope'
@@ -65,35 +65,37 @@ def main():
     
     #f_dir = 'E:\data\V1\proc_data\\'
     #f_dir = 'E:\\data\\Auditory\\caiman_out_multiplane\\'
-    #f_dir = 'F:\\data\\Auditory\\caiman_out\\movies\\'
+    #f_dir = 'G:\\data\\Auditory\\caiman_out\\movies\\'
+    #f_dir = 'C:\\Users\\ys2605\\Desktop\\stuff\\AC_data\\cmnf_data\\'
     f_dir = 'C:\\Users\\ys2605\\Desktop\\stuff\\AC_data\\caiman_data\\movies\\'
+    #f_dir = 'C:\\Users\\ys2605\\Desktop\\stuff\\random_save_path\\movies\\'
     #f_name = 'A2_freq_grating1_10_2_18_OA_cut'
     #f_dir = 'C:\\Users\\rylab_dataPC\\Desktop\\Yuriy\\DD_data\\proc_data\\'
     #f_name = 'vmmn2_9_16_19a_OA_cut'
     #f_name = 'ammn_2_dplanes2_10_14_19_OA_mpl1_cut';
-    f_name = 'A1_ammn_3plt_2plm2_12_27_20_mpl3_cut';
-    f_ext = 'hdf5'
+    f_name = 'A1_cont_2_12_4_21a_mpl5_pl5_cut_bidi_moco';
+    f_ext = 'h5'
     fnames = [f_dir + f_name + '.' + f_ext]
     
     # %%   Set up some parameters
     
-    fr = 15.5455  # frame rate (Hz) 3pl + 4ms = 15.5455
+    fr = 10; #9.3273 for 5mpl; ~ 10  # frame rate (Hz) 3pl + 4ms = 15.5455; 55l+4 = 9.3273
     decay_time = 0.5 # 2 for s 0.5 for f # approximate length of transient event in seconds
-    gSig = (5,5)  # expected half size of neurons
+    gSig = (6,6)  # expected half size of neurons
     p = 2  # order of AR indicator dynamics
     min_SNR = 1   # minimum SNR for accepting new components
     ds_factor = 1  # spatial downsampling factor (increases speed but may lose some fine structure)
     gnb = 2  # number of background components
     gSig = tuple(np.ceil(np.array(gSig) / ds_factor).astype('int')) # recompute gSig if downsampling is involved
-    mot_corr = True  # flag for online motion correction
-    pw_rigid = False  # flag for pw-rigid motion correction (slower but potentially more accurate)
+    mot_corr = False  # flag for online motion correction
+    pw_rigid = True  # flag for pw-rigid motion correction (slower but potentially more accurate)
     max_shifts_online = 6  # maximum allowed shift during motion correction
     sniper_mode = True  # use a CNN to detect new neurons (o/w space correlation)
     rval_thr = 0.9  # soace correlation threshold for candidate components
     # set up some additional supporting parameters needed for the algorithm
     # (these are default values but can change depending on dataset properties)
-    init_batch = 1000  # number of frames for initialization (presumably from the first file)
-    K = 2  # initial number of components
+    init_batch = 500  # number of frames for initialization (presumably from the first file)
+    K = 1  # initial number of components
     epochs = 2  # number of passes over the data
     show_movie = True # show the movie as the data gets processed
     merge_thr = 0.8
@@ -160,12 +162,13 @@ def main():
     c, dview, n_processes = cm.cluster.setup_cluster(backend='local', n_processes=None,
                                      single_thread=False)
     
+    mc_name_tag = 'MCPWrigid' + str(opts.motion['pw_rigid'])
     
     if opts.online['motion_correct']:
         shifts = cnm.estimates.shifts[-cnm.estimates.C.shape[-1]:]
         if not opts.motion['pw_rigid']:
             memmap_file = cm.motion_correction.apply_shift_online(images, shifts,
-                                                        save_base_name=(f_dir+f_name+'MC'))
+                                                        save_base_name=(f_dir+f_name+mc_name_tag))
         else:
             mc = cm.motion_correction.MotionCorrect(fnames, dview=dview,
                                                     **opts.get_group('motion'))
@@ -175,9 +178,9 @@ def main():
             
             memmap_file = mc.apply_shifts_movie(fnames, rigid_shifts=False,
                                                 save_memmap=True,
-                                                save_base_name=(f_dir+f_name+'MC'))
+                                                save_base_name=(f_dir+f_name+mc_name_tag))
     else:  # To do: apply non-rigid shifts on the fly
-        memmap_file = images.save(fnames[0][:-4] + 'mmap')
+        memmap_file = images.save(fnames[0][:-5] + mc_name_tag + '.mmap')
         
         
     cnm.mmap_file = memmap_file
@@ -198,7 +201,7 @@ def main():
     
     cnm.estimates.evaluate_components(images, cnm.params, dview=dview)
     cnm.estimates.Cn = Cn
-    cnm.save(os.path.splitext(fnames[0])[0]+'_'+str(gSig[0])+'gsig_results.hdf5')
+    cnm.save(os.path.splitext(fnames[0])[0]+'_results.hdf5')
     
     
     dview.terminate()
