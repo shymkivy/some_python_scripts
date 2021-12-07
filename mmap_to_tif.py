@@ -15,9 +15,9 @@ import caiman as cm
 
 f_dir_mov = 'F:\\data\\Auditory\\caiman_out\\\movies\\';
 
-load_file_name = 'A1_ammn1_10_2_18_OA_cutMC2_d1_256_d2_256_d3_1_order_F_frames_24396_.mmap';
+load_file_name = 'A2_freq_grating1_10_2_18_OA_cutMC_d1_256_d2_256_d3_1_order_F_frames_26320_.mmap';
 
-save_file_name = 'A1_ammn1_10_2_18_OA_cut_MC2_pw_rig.tif';
+save_file_name = 'A2_freq_grating1_10_2_18MC_pw_rig.tif';
 
 #%%
 x3 = cm.load(f_dir_mov+load_file_name);
