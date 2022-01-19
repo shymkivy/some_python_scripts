@@ -73,7 +73,7 @@ def main():
     #f_dir = 'C:\\Users\\rylab_dataPC\\Desktop\\Yuriy\\DD_data\\proc_data\\'
     #f_name = 'vmmn2_9_16_19a_OA_cut'
     #f_name = 'ammn_2_dplanes2_10_14_19_OA_mpl1_cut';
-    f_name = 'A1_cont_2_12_4_21a_mpl5_pl5_cut_bidi_moco';
+    f_name = 'A1_cont_1_12_4_21b_mpl5_pl3'; # A1_cont_4_12_4_21b_mpl5_pl4
     f_ext = 'h5'
     fnames = [f_dir + f_name + '.' + f_ext]
     
@@ -180,7 +180,7 @@ def main():
                                                 save_memmap=True,
                                                 save_base_name=(f_dir+f_name+mc_name_tag))
     else:  # To do: apply non-rigid shifts on the fly
-        memmap_file = images.save(fnames[0][:-5] + mc_name_tag + '.mmap')
+        memmap_file = images.save(fnames[0][:-3] + mc_name_tag + '.mmap')
         
         
     cnm.mmap_file = memmap_file
