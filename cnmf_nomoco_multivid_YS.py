@@ -41,6 +41,7 @@ except:
 #except NameError:
 #    pass
 
+import pandas as pd
 
 import caiman as cm
 from caiman.source_extraction import cnmf as cnmf
@@ -76,18 +77,24 @@ def main():
     plot_stuff = 0;
     save_results = True;
     
+    
     #%% Select file(s) to be processed (download if not present)
     """
     Load file
     """
     
-    f_dir = 'D:\\data\\caiman_data_dream\\movies\\'
+    #f_dir = r'F:\\AC_data\\caiman_data_missmatch\\movies\\'
+    f_dir = r'F:\\AC_data\\caiman_data_dream3\\movies\\'
+    #f_dir = 'D:\\data\\caiman_data_dream\\movies\\'
     
     
-    save_dir = 'C:\\Users\\ys2605\\Desktop\\stuff\\AC_data\\caiman_data_dream\\'
+    #save_dir = 'F:\\AC_data\\caiman_data_missmatch\\'
+    save_dir = 'F:\\AC_data\\caiman_data_dream3\\'
+    
     
     f_ext = 'h5'
     
+
     
     # f_name = ['AC_ammn5_11_24_21_mpl5_pl1',
     #           'AC_ammn5_11_24_21_mpl5_pl2',
@@ -101,7 +108,7 @@ def main():
     #           # 'AC_ammn1_1_31_22_mpl5_pl5'];
     
     
-    # make list of files
+    # process all files in dir
     f_list = os.listdir(f_dir)
     f_name = [];
     for fil1 in f_list:
@@ -109,13 +116,27 @@ def main():
             fname2 = os.path.splitext(fil1)[0]
             if not os.path.exists(save_dir + fname2 + '_results_cnmf.hdf5'):
                 f_name.append(fname2);
-        
+
     
     #%%
     for n_fl in range(len(f_name)):
         
         #%%
-        fnames = [f_dir + f_name[n_fl] + '.' + f_ext]
+        #fnames = [f_dir + f_name[n_fl] + '.' + f_ext]
+        
+        # n_fl = 0
+        # f_name = [];
+        # f_name.append('test')
+        
+        # n_processes = 4
+        
+        # fnames = [f_dir + 'M166_im1_AC_tone_lick_reward1_6_20_22_mpl5_pl1' + '.' + f_ext,
+        #           f_dir + 'M166_im2_AC_ammn2_6_20_22_mpl5_pl1' + '.' + f_ext,
+        #           f_dir + 'M166_im3_AC_rest3_6_20_22_mpl5_pl1' + '.' + f_ext,
+        #           f_dir + 'M166_im4_AC_ammn_stim4_6_20_22_mpl5_pl1' + '.' + f_ext,
+        #           f_dir + 'M166_im5_AC_rest5_6_20_22_mpl5_pl1' + '.' + f_ext,
+        #           f_dir + 'M166_im6_AC_ammn6_6_20_22_mpl5_pl1' + '.' + f_ext]
+        
         print('Running ' + fnames[0])
     
         #fnames = ['C:/Users/rylab_dataPC/Desktop/Yuriy/caiman_data/rest1_5_9_19_2_cut_ca.hdf5']
@@ -136,7 +157,7 @@ def main():
         #%% restart cluster to clean up memory
         if 'dview' in locals():
             cm.stop_server(dview=dview)
-        c, dview, n_processes = cm.cluster.setup_cluster(backend='local', n_processes=None,
+        c, dview, n_processes = cm.cluster.setup_cluster(backend='local', n_processes=n_processes, # =None
                                          single_thread=False)
     
         # %%  parameters for source extraction and deconvolution
@@ -150,9 +171,10 @@ def main():
         rf = 50                  # half-size of the patches in pixels. e.g., if rf=25, patches are 50x50
         stride_cnmf = 12          # amount of overlap between the patches in pixels
         K = 30                    # number of components per patch
-        gSig = [3, 3]            # expected half size of neurons in pixels
+        gSig = [4, 4]            # expected half size of neurons in pixels
         # initialization method (if analyzing dendritic data using 'sparse_nmf')
         method_init = 'greedy_roi'
+        fudge_factor = .99 # *****important for temporal inference : float (close but smaller than 1) (0< fudge_factor <= 1) default: .96 bias correction factor for discrete time constants shrinkage factor to reduce bias
         ssub = 1                     # spatial subsampling during initialization
         tsub = 1                     # temporal subsampling during intialization
         
@@ -166,17 +188,16 @@ def main():
                      'stride': stride_cnmf,
                      'K': K,
                      'gSig': gSig,
-                     
+                     'fudge_factor': fudge_factor,
                      'method_init': method_init,
                      'rolling_sum': True,
                      'merge_thr': merge_thr,
                      'n_processes': n_processes,
-                     'only_init': True,
                      'ssub': ssub,
                      'tsub': tsub}
         
         opts = cnmf.params.CNMFParams(params_dict=opts_dict)
-    
+        
         #opts.change_params(params_dict=opts_dict)
         # %% RUN CNMF ON PATCHES
         # First extract spatial and temporal components on patches and combine them

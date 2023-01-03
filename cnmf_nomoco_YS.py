@@ -1,3 +1,4 @@
+
 #!/usr/bin/env python
 
 """
@@ -24,6 +25,7 @@ import logging
 import matplotlib.pyplot as plt
 import numpy as np
 import os
+import sys
 #import h5py
 #import deepdish
 
@@ -31,6 +33,10 @@ try:
     cv2.setNumThreads(0)
 except:
     pass
+
+cwd = os.getcwd() 
+sys.path.append('C:\\Users\\ys2605\\Desktop\\stuff\\python_scripts')
+from f_caiman_extra_YS import *
 
 #try:
 #    if __IPYTHON__:
@@ -61,7 +67,7 @@ from caiman.motion_correction import MotionCorrect
 logging.basicConfig(format=
                     "%(relativeCreated)12d [%(filename)s:%(funcName)20s():%(lineno)s]"\
                     "[%(process)d] %(message)s",
-                    level=logging.INFO)
+                    level=logging.ERROR)
 
 
 # %%
@@ -80,21 +86,27 @@ def main():
     Load file
     """
     
-    f_dir = 'C:\\Users\\ys2605\\Desktop\\stuff\\AC_data\\caiman_data_dream_exp\\movies\\'
+    f_dir = 'G:\\data\\Auditory\\caiman_data_missmatch\\movies\\'
     
-    f_name = 'AC_ammn1_1_2_22b_mpl5_pl2';
+    save_dir = 'F:\\AC_data\\caiman_data_missmatch\\'
+    
+    f_name = 'M1_im1_A1_ammn1_10_2_18';
     f_ext = 'h5'
     fnames = [f_dir + f_name + '.' + f_ext]
     
+    save_tag = '' # _cvxpy
+    
+    
+    n_processes_set = 4;
     
     #fnames = ['C:/Users/rylab_dataPC/Desktop/Yuriy/caiman_data/rest1_5_9_19_2_cut_ca.hdf5']
     
-    print('Running ' + fnames[0])
+    print('Running ' + f_name)
     
     #%% load mov
     print('Saving memmap...')
     # need to create memmap version of movie
-    fname_mmap = cm.mmapping.save_memmap(fnames, base_name='memmap_'+f_name, order='C') # 
+    fname_mmap = cm.mmapping.save_memmap(fnames, base_name=save_dir+'\\movies\\memmap_' + f_name, order='C') # 
     
     
     Yr, dims, T = cm.load_memmap(fname_mmap)   # mc.mmap_file[0]
@@ -104,15 +116,15 @@ def main():
     
     #plt.figure();
     #plt.imshow(np.mean(images, axis=0))
-    # %% restart cluster to clean up memory
+    #%% restart cluster to clean up memory
     if 'dview' in locals():
         cm.stop_server(dview=dview)
-    c, dview, n_processes = cm.cluster.setup_cluster(backend='local', n_processes=None,
-                                     single_thread=False)
+    c, dview, n_processes = cm.cluster.setup_cluster(backend='local', n_processes=n_processes_set,
+                                      single_thread=False)
     
     # %%  parameters for source extraction and deconvolution
     
-    fr = 10             # imaging rate in frames per second
+    fr = 30             # imaging rate in frames per second
     decay_time = 2; # 1;#0.4    # length of a typical transient in seconds
     
     p = 2                    # order of the autoregressive system
@@ -121,30 +133,49 @@ def main():
     rf = 50                  # half-size of the patches in pixels. e.g., if rf=25, patches are 50x50
     stride_cnmf = 12          # amount of overlap between the patches in pixels
     K = 30                    # number of components per patch
-    gSig = [3, 3]            # expected half size of neurons in pixels
+    gSig = [4, 4]            # ******important, must be large enought so roi not split. expected half size of neurons in pixels
     # initialization method (if analyzing dendritic data using 'sparse_nmf')
-    method_init = 'greedy_roi'
+    method_init = 'greedy_roi' # greedy_roi, corr_pnr, sparse_NMF, local_NMF
+    fudge_factor = .99 # *****important for temporal inference : float (close but smaller than 1) (0< fudge_factor <= 1) default: .96 bias correction factor for discrete time constants shrinkage factor to reduce bias
+    # nrgthr = .999           # float, default: 0.9999 Energy threshold for spatial comp .999 maybe looks little better but not much diff
+    # rolling_sum  # for greedy roi, False, True
+    # maxIter = 10; # % default 5; number HALS iter during init
+    # Iter = 10 #  int, default: 5 number of rank-1 refinement iterations during greedy_roi initialization
+    # method_ls = 'nnls_L0' #default: ‘lasso_lars’ ‘nnls_L0’. Nonnegative least square with L0 penalty ‘lasso_lars’ lasso lars function from scikit learn broken
+    # optimize_g = True     # flag for optimizing time constants' default false - gives error
+    # SC_kernel = 'cos'
+    # block_size = 10000 # 5000 default
+    # nb_patch = 2;
+    # lambda_gnmf = 1; #  float, default: 1. regularization weight for graph NMF - seems to do nothing 
+    # method_exp = 'ellipse' # ‘dilate’|’ellipse’, default: ‘dilate’ method for expanding footprint of spatial components
+    
     ssub = 1                     # spatial subsampling during initialization
     tsub = 1                     # temporal subsampling during intialization
+    #method_deconvolution = 'cvxpy' # oasis
+    # lambda_gnmf # regularization weight NMF, default 1
+    # maxIter # numner of hals iterations during init, default 5
     
     # parameters for component evaluation
     opts_dict = {
-                 #'fnames': fnames,            
-                 'fr': fr,
-                 'decay_time': decay_time,
-                 'nb': gnb,
-                 'rf': rf,
-                 'stride': stride_cnmf,
-                 'K': K,
-                 'gSig': gSig,
-                 
-                 'method_init': method_init,
-                 'rolling_sum': True,
-                 'merge_thr': merge_thr,
-                 'n_processes': n_processes,
-                 'only_init': True,
-                 'ssub': ssub,
-                 'tsub': tsub}
+                 #'fnames':                  fnames,                
+                 'fr':                      fr,
+                 'decay_time':              decay_time,
+                 'nb':                      gnb,
+                 #'rf':                      rf,
+                 #'stride':                  stride_cnmf,
+                 'K':                       K,
+                 'gSig':                    gSig,
+                 'fudge_factor':            fudge_factor,
+                 'method_init':             method_init,
+                 'rolling_length':          round(1000/fr),    # temporal mean smooth frames
+                 #'nrgthr':                  nrgthr,
+                 #'ring_size_factor':        2,
+                 'merge_thr':               merge_thr,
+                 'n_processes':             n_processes,
+                 'ssub':                    ssub,
+                 'tsub':                    tsub,
+                 'remove_very_bad_comps':   True,
+                 }
     
     opts = cnmf.params.CNMFParams(params_dict=opts_dict)
     
@@ -157,7 +188,7 @@ def main():
     opts.change_params({'p': 0})
     cnm = cnmf.CNMF(n_processes, params=opts, dview=dview)
     cnm = cnm.fit(images)
-       
+    
     
     # %% plot contours of found components
     Cn = cm.local_correlations(images, swap_dim=False)
@@ -232,7 +263,7 @@ def main():
     
     print('Saving...')
     if save_results:
-        cnm2.save(fnames[0][:-3] + '_results_cnmf.hdf5')
+        cnm2.save(save_dir + f_name + save_tag + '_results_cnmf.hdf5')
     
     print('Done')
 #%%
