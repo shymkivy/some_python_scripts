@@ -17,7 +17,8 @@ import h5py
 import pandas as pd
 import re
 import numpy as np
-import matplotlib.pyplot as plt
+#import matplotlib.pyplot as plt
+import scipy as sc
 
 
 #%%
@@ -30,6 +31,8 @@ df = pd.read_excel (r'C:\Users\ys2605\Desktop\stuff\AC_2p_analysis\AC_data_list_
 
 overwrite_saved = False
 
+use_only_mat = True
+
 #%% load info
 
 experiment = 'missmatch';
@@ -39,8 +42,6 @@ df2 = df[df['experiment'] == experiment]
 df3 = df2[df2['do_proc'] == 1]
 
 mouse_list = np.unique(df3['mouse_id'].values);
-
-
 
 #%%
 
@@ -121,21 +122,65 @@ for n_mouse in range(len(mouse_list)):
                     templates_list = [];
                     for n_dset in range(len(df5)):
                     
-                        cnm = cnmf.cnmf.load_CNMF(data_dir+fname_list_h[n_dset]);
-                        
                         mat_file = h5py.File(data_dir+fname_list_m[n_dset], 'r');
-                        comp_accepted = np.asarray(mat_file['proc']['comp_accepted'])[0].astype(bool)
+                        comp_accepted = np.asarray(mat_file['proc']['comp_accepted']).flatten().astype(bool)
+                        idx_manual_bad = np.asarray(mat_file['proc']['idx_manual_bad']).flatten().astype(int)
+                        idx_manual = np.asarray(mat_file['proc']['idx_manual']).flatten().astype(int)
                         
-                        dims = cnm.dims
-                        A = cnm.estimates.A[:,comp_accepted];
-                        C_mean = np.mean(cnm.estimates.C, 1);
-                        YrA_mean = np.mean(cnm.estimates.YrA, 1);
-                        b = cnm.estimates.b;
-                        f_mean = np.mean(cnm.estimates.f, 1)
+                        comp_accepted[idx_manual_bad-1] = False
+                        comp_accepted[idx_manual-1] = True
                         
-                        A_list.append(A)
+
+                        if use_only_mat:
+                            # create A from mat file
+                            dims = tuple(np.asarray(mat_file['est']['dims']).flatten())
+                            
+                            Adata = np.asarray(mat_file['est']['A']['data']).flatten()
+                            Air = np.asarray(mat_file['est']['A']['ir']).flatten()
+                            Ajc = np.asarray(mat_file['est']['A']['jc']).flatten()
+                            
+                            num_frames = len(Ajc) - 1
+                            
+                            A = np.zeros((dims[0] * dims[1], num_frames))
+                            
+                            for n1 in range(num_frames):
+                                idx_start = Ajc[n1]
+                                idx_end = Ajc[n1+1]
+                            
+                                A[Air[idx_start:idx_end], n1] = Adata[idx_start:idx_end]
+                            
+                            Acs = sc.sparse.lil_matrix(A)
+                            
+                            A3d = A.reshape([dims[0], dims[1], num_frames])
+                            
+                            C_mean = np.mean(np.asarray(mat_file['est']['C']), axis=0)
+                            YrA_mean = np.mean(np.asarray(mat_file['est']['YrA']), axis=0)
+                            b = np.asarray(mat_file['est']['b'])
+                            f_mean = np.mean(np.asarray(mat_file['est']['f']), axis=1)
+                            
+                        else:
+                            # load from caiman data
+                            cnm = cnmf.cnmf.load_CNMF(data_dir+fname_list_h[n_dset]);
+                            
+                            dims = cnm.dims
+                            
+                            Acs = sc.sparse.lil_matrix(cnm.estimates.A)
+                            
+                            num_frames = A.shape[1]
+                            
+                            A3d = A.toarray().reshape([dims[0], dims[1], num_frames])
+                            
+                            C_mean = np.mean(cnm.estimates.C, 1)
+                            YrA_mean = np.mean(cnm.estimates.YrA, 1)
+                            b = cnm.estimates.b;
+                            f_mean = np.mean(cnm.estimates.f, 1)
+                            
+                        
+                        A_cut = Acs[:,comp_accepted[:num_frames]]
+                        
+                        A_list.append(A_cut)
     
-                        im1 = np.reshape(np.dot(cnm.estimates.A.toarray(), C_mean + YrA_mean), (dims[0], dims[1]))
+                        im1 = np.reshape(np.dot(Acs.toarray(), C_mean + YrA_mean), (dims[0], dims[1]))
                         bkg1 = np.reshape(np.dot(b, f_mean), (dims[0], dims[1]));
                         ave_im = bkg1 + im1;
                         
